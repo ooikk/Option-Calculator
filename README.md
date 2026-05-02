@@ -139,7 +139,7 @@ Verify the Web App is deployed as "Execute as: Me" and "Who has access: Anyone".
 
 Under **Manage Deployments**, copy the URL under **Web App**
 
-<img width="941" height="722" alt="image" src="https://github.com/user-attachments/assets/8a9d21df-d709-46bf-aabb-17f945afab66" />
+<img alt="image" style="width: 75%; height: auto;" src="https://github.com/user-attachments/assets/8a9d21df-d709-46bf-aabb-17f945afab66" />
 
 
 **4.0 Running the html:**
