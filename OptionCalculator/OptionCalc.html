@@ -313,13 +313,19 @@
                         fill: true, tension: 0.2, pointRadius: 0
                     }]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: {
-                        y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', callback: (v) => formatCurrency(v) } },
-                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
-                    },
-                    plugins: { legend: { labels: { color: '#9ca3af' } } }
+				options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', callback: (v) => formatCurrency(v) } },
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }},
+                  plugins: { 
+                    legend: { 
+                      labels: { color: '#9ca3af' },
+                      // ADD THIS LINE TO DISABLE CLICKING:
+                      onClick: (e) => e.stopPropagation() 
+                      } 
+                  }
                 }
             });
         }
