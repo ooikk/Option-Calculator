@@ -63,7 +63,9 @@ function fetchTickerPrice(symbol) {
 
 **2. The Client-Side (Index.html) - Focus on the Sync Bridge**
 
-In your HTML, ensure the scrapePrice function handles the "failure" case so the button stops spinning even if the data doesn't come back. Follow these steps to link your HTML:
+In your HTML, ensure the scrapePrice function handles the "failure" case so the button stops spinning even if the data doesn't come back. 
+
+Follow these steps to link your HTML:
 
 **1.0 Create the HTML File**
 
