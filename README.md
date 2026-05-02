@@ -119,7 +119,7 @@ function scrapePrice() {
 In the Apps Script editor, click the **"Run"** button for **fetchTickerPrice** once manually. It will prompt you for permissions to **"Connect to an external service."** You must approve this.
 
 **2.0 Deploy as Web App:**
-- Click **Deploy > New Deployment.**
+- Click **Deploy > New Deployment.** To update or modify script, choose **Manage Deployments** and click "Pencil" and select "New Version".
 - Select **Type: Web App.**
 - Set **Execute as: Me.**
 - Set **Who has access: Anyone (or yourself).**
