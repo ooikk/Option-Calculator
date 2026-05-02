@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Option Strategy Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 border-b border-gray-700 pb-4">
+            <div class="flex justify-between items-end">
+                <div>
+                    <h1 class="text-3xl font-bold text-blue-400">Option Strategy Visualizer</h1>
+                    <p class="text-gray-400">Unified Price Tracking | Adaptive Scaling</p>
+                </div>
+                <div class="text-[10px] text-gray-500 font-mono">v2.1.GAS</div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Input Section -->
+            <div class="lg:col-span-1 space-y-6 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+                <div>
+                    <label class="block text-sm font-medium mb-2 text-gray-300">Select Strategy</label>
+                    <select id="strategy" onchange="toggleInputs()" class="w-full bg-gray-700 border-gray-600 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="strangle" selected>Strangle / Straddle</option>
+                        <option value="condor">Short Iron Condor</option>
+                        <option value="buy_long">Buy Call / Put (Long)</option>
+                        <option value="single">Sell Call / Put (Short)</option>
+                    </select>
+                </div>
+
+                <div id="leg-container" class="space-y-4"></div>
+
+                <!-- Combined Price Section with Sync Button -->
+                <div class="pt-6 border-t border-gray-700">
+                    <div class="flex items-center justify-between gap-2 relative">
+                        <div class="flex-1">
+                            <label id="ticker-label" class="block text-[10px] uppercase font-bold text-gray-400 mb-1">Current Price ($)</label>
+                            <input type="number" id="currentPrice" value="27.00" step="0.01" 
+                                class="w-full bg-gray-700 border border-gray-600 rounded-xl p-3 text-xl font-mono text-white focus:border-blue-500 outline-none" 
+                                oninput="syncTarget(); calculate();">
+                        </div>
+
+                        <!-- Sync Diamond Button -->
+                        <div class="z-10 -mx-3 mt-4">
+                            <button onclick="scrapePrice()" id="syncBtn" title="Sync Live Price"
+                                class="bg-blue-700 hover:bg-blue-600 text-white p-2.5 rotate-45 rounded-lg shadow-lg transition-all active:scale-90 border border-blue-400/30">
+                                <div class="-rotate-45">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div class="flex-1 text-right">
+                            <label class="block text-[10px] uppercase font-bold text-purple-400 mb-1">Target Price ($)</label>
+                            <input type="number" id="targetPrice" value="27.00" step="0.01" 
+                                class="w-full bg-gray-700 border border-gray-600 rounded-xl p-3 text-xl font-mono text-white focus:border-purple-500 outline-none text-right" 
+                                oninput="calculate()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="lg:col-span-2 space-y-6">
+                <div id="results" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+                <div id="be-summary" class="bg-blue-900/10 border border-blue-800/50 rounded-xl p-6 hidden">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-6 text-center">
+                        <div id="be-low-box" class="flex-1">
+                            <p class="text-xs text-blue-400 uppercase font-bold mb-1">Lower Breakeven</p>
+                            <p id="be-low-val" class="text-2xl font-mono text-red-400">$0.00</p>
+                            <p id="be-low-pct" class="text-sm text-gray-500 font-mono">(0.00%)</p>
+                        </div>
+
+                        <div id="strike-box" class="flex-1 border-x border-gray-700 px-4">
+                            <p class="text-xs text-gray-500 uppercase font-bold mb-3">Strikes</p>
+                            <div id="strike-list" class="flex flex-wrap justify-center gap-2 text-lg font-mono text-white"></div>
+                        </div>
+
+                        <div id="be-high-box" class="flex-1">
+                            <p class="text-xs text-blue-400 uppercase font-bold mb-1">Upper Breakeven</p>
+                            <p id="be-high-val" class="text-2xl font-mono text-green-400">$0.00</p>
+                            <p id="be-high-pct" class="text-sm text-gray-500 font-mono">(0.00%)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 h-[450px]">
+                    <canvas id="payoffChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        // --- NEW: GAS Integration Logic ---
+        function scrapePrice() {
+            const symbols = document.querySelectorAll('.symbol-input');
+            if (symbols.length === 0) return;
+            
+            const rawValue = symbols[0].value.toUpperCase();
+            const btn = document.getElementById('syncBtn');
+            
+            // UI Feedback: Spinning
+            btn.classList.add('animate-spin', 'opacity-50');
+
+            // Explicit call to Google Apps Script function
+            google.script.run
+                .withSuccessHandler((price) => {
+                    btn.classList.remove('animate-spin', 'opacity-50');
+                    if (price) {
+                        document.getElementById('currentPrice').value = price.toFixed(2);
+                        syncTarget(); // Sync target to match new current price
+                        calculate();
+                    } else {
+                        console.error("No price returned from GAS");
+                    }
+                })
+                .withFailureHandler((err) => {
+                    btn.classList.remove('animate-spin', 'opacity-50');
+                    console.error("GAS Bridge Failure:", err);
+                })
+                .fetchTickerPrice(rawValue);
+        }
+
+        function syncTarget() {
+            // Automatically updates target to match current when current is typed/fetched
+            document.getElementById('targetPrice').value = document.getElementById('currentPrice').value;
+        }
+
+        // --- Core Utility Functions ---
+        function formatCurrency(val) {
+            if (Math.abs(val) < 0.001) val = 0;
+            const formatted = Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return val < 0 ? `-$${formatted}` : `$${formatted}`;
+        }
+
+        function parseSymbol(symbol) {
+            try {
+                const tickerMatch = symbol.match(/^[A-Z]+/);
+                const ticker = tickerMatch ? tickerMatch[0] : "";
+                const remaining = symbol.substring(ticker.length);
+                const type = remaining.match(/[CP]/)[0];
+                const parts = remaining.split(type);
+                return { 
+                    ticker, 
+                    expiry: `20${parts[0].substring(0, 2)}-${parts[0].substring(2, 4)}-${parts[0].substring(4, 6)}`, 
+                    type: type === 'C' ? 'Call' : 'Put', 
+                    strike: parseFloat(parts[1]) / 1000, 
+                    valid: true 
+                };
+            } catch (e) { return { valid: false }; }
+        }
+
+        function updateUIFeedback() {
+            const symbols = document.querySelectorAll('.symbol-input');
+            const labels = document.querySelectorAll('.leg-label');
+            const tickerLabel = document.getElementById('ticker-label');
+            symbols.forEach((input, i) => {
+                const info = parseSymbol(input.value.toUpperCase());
+                if (info.valid) {
+                    const isShort = input.closest('div').querySelector('.short-toggle').value === "true";
+                    labels[i].innerText = `${isShort ? 'Short' : 'Long'} ${info.type}`;
+                    labels[i].className = info.type === 'Call' ? 'leg-label text-[10px] font-bold text-blue-400 uppercase' : 'leg-label text-[10px] font-bold text-red-400 uppercase';
+                    if (i === 0) tickerLabel.innerText = `${info.ticker} Price ($)`;
+                } else {
+                    labels[i].innerText = "Invalid Symbol";
+                }
+            });
+        }
+
+        function toggleInputs() {
+            const strategy = document.getElementById('strategy').value;
+            const container = document.getElementById('leg-container');
+            container.innerHTML = '';
+            const configs = {
+                'strangle': [{isShort: false, sym: 'KWEB260529C00029500', prem: '0.80'}, {isShort: false, sym: 'KWEB260529P00026000', prem: '0.26'}],
+                'condor': [
+                    {isShort: false, sym: 'KWEB260529P00024000', prem: '0.10'}, {isShort: true, sym: 'KWEB260529P00026000', prem: '0.26'},
+                    {isShort: true, sym: 'KWEB260529C00029500', prem: '0.80'}, {isShort: false, sym: 'KWEB260529C00031500', prem: '0.15'}
+                ],
+                'buy_long': [{isShort: false, sym: 'KWEB260529C00029500', prem: '0.80'}],
+                'single': [{isShort: true, sym: 'KWEB260529C00029500', prem: '0.80'}]
+            };
+            configs[strategy].forEach((cfg) => {
+                container.innerHTML += `
+                    <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="leg-label text-[10px] font-bold text-gray-500 uppercase">Detecting...</p>
+                            <input type="hidden" class="short-toggle" value="${cfg.isShort}">
+                        </div>
+                        <input type="text" class="symbol-input w-full bg-gray-700 border-gray-600 rounded p-1 mb-1 text-xs uppercase font-mono" value="${cfg.sym}" oninput="updateUIFeedback(); calculate();">
+                        <div class="flex gap-2">
+                            <input type="number" class="qty-input w-1/2 bg-gray-700 border-gray-600 rounded p-1 text-xs" value="2" oninput="calculate()">
+                            <input type="number" step="0.01" class="prem-input w-1/2 bg-gray-700 border-gray-600 rounded p-1 text-xs" value="${cfg.prem}" oninput="calculate()">
+                        </div>
+                    </div>`;
+            });
+            updateUIFeedback();
+            calculate();
+        }
+
+        function calculatePL(legs, stockPrice) {
+            let pl = 0;
+            legs.forEach(leg => {
+                const intrinsic = leg.type === 'Call' ? Math.max(0, stockPrice - leg.strike) : Math.max(0, leg.strike - stockPrice);
+                pl += leg.isShort ? (leg.premium - intrinsic) * 100 * leg.qty : (intrinsic - leg.premium) * 100 * leg.qty;
+            });
+            return pl;
+        }
+
+        function calculate() {
+            const strategy = document.getElementById('strategy').value;
+            const currentPrice = parseFloat(document.getElementById('currentPrice').value) || 0;
+            const targetPrice = parseFloat(document.getElementById('targetPrice').value) || 0;
+            const symbols = document.querySelectorAll('.symbol-input');
+            const qtys = document.querySelectorAll('.qty-input');
+            const prems = document.querySelectorAll('.prem-input');
+            const shorts = document.querySelectorAll('.short-toggle');
+            
+            let legs = [], totalPremiumFlow = 0, strikes = [];
+            symbols.forEach((s, i) => {
+                const info = parseSymbol(s.value.toUpperCase());
+                if (info.valid) {
+                    const q = parseFloat(qtys[i].value) || 0, p = parseFloat(prems[i].value) || 0, isShort = shorts[i].value === "true";
+                    legs.push({...info, qty: q, premium: p, isShort});
+                    
+                    // Logic updated: Short (received) is positive, Long (paid) is negative
+                    totalPremiumFlow += isShort ? (p * 100 * q) : -(p * 100 * q);
+                    strikes.push(info.strike);
+                }
+            });
+
+            if (legs.length === 0) return;
+            
+            // premiumImpact remains absolute for breakeven calculations
+            const qty = legs[0].qty;
+            const premiumImpact = Math.abs(totalPremiumFlow / qty / 100);
+            
+            let lBE = null, uBE = null;
+            if (strategy === 'strangle') {
+                lBE = Math.min(...strikes) - premiumImpact;
+                uBE = Math.max(...strikes) + premiumImpact;
+            } else if (strategy === 'condor') {
+                const ps = legs.find(l => l.type === 'Put' && l.isShort)?.strike || Math.min(...strikes);
+                const cs = legs.find(l => l.type === 'Call' && l.isShort)?.strike || Math.max(...strikes);
+                lBE = ps - premiumImpact; uBE = cs + premiumImpact;
+            } else {
+                const leg = legs[0];
+                if (leg.type === 'Call') uBE = leg.strike + premiumImpact;
+                else lBE = leg.strike - premiumImpact;
+            }
+
+            document.getElementById('be-low-box').classList.toggle('hidden', lBE === null);
+            document.getElementById('be-high-box').classList.toggle('hidden', uBE === null);
+            if (lBE) {
+                document.getElementById('be-low-val').innerText = `$${lBE.toFixed(2)}`;
+                document.getElementById('be-low-pct').innerText = `(${((lBE - currentPrice) / currentPrice * 100).toFixed(2)}%)`;
+            }
+            if (uBE) {
+                document.getElementById('be-high-val').innerText = `$${uBE.toFixed(2)}`;
+                document.getElementById('be-high-pct').innerText = `(${((uBE - currentPrice) / currentPrice * 100).toFixed(2)}%)`;
+            }
+
+            const pTarget = calculatePL(legs, targetPrice);
+            
+            // UI updated: Label changed to "Total Premium" and uses the new flow signage
+            document.getElementById('results').innerHTML = `
+                <div class="bg-blue-900/20 p-4 rounded-lg border border-blue-800">
+                    <p class="text-[10px] text-blue-400 uppercase">Total Premium (Net)</p>
+                    <p class="text-2xl font-mono ${totalPremiumFlow >= 0 ? 'text-blue-200' : 'text-orange-300'}">${formatCurrency(totalPremiumFlow)}</p>
+                </div>
+                <div class="bg-purple-900/20 p-4 rounded-lg border border-purple-800">
+                    <p class="text-[10px] text-purple-400 uppercase">P/L at Target ($${targetPrice.toFixed(2)})</p>
+                    <p class="text-2xl font-mono ${pTarget >= 0 ? 'text-green-400' : 'text-red-400'}">${formatCurrency(pTarget)}</p>
+                </div>`;
+
+            document.getElementById('be-summary').classList.remove('hidden');
+            document.getElementById('strike-list').innerHTML = [...new Set(strikes)].sort((a,b) => a-b).map(s => `<span>$${s.toFixed(2)}</span>`).join('');
+
+            plotChart(legs, strikes, currentPrice, targetPrice);
+        }
+
+        function plotChart(legs, strikes, currentPrice, targetPrice) {
+            const minS = Math.min(...strikes, currentPrice, targetPrice) * 0.8;
+            const maxS = Math.max(...strikes, currentPrice, targetPrice) * 1.2;
+            const labels = [], data = [];
+            for (let p = minS; p <= maxS; p += (maxS - minS) / 100) {
+                labels.push(p.toFixed(2));
+                data.push(calculatePL(legs, p));
+            }
+            const ctx = document.getElementById('payoffChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'P/L at Expiry',
+                        data: data,
+                        borderColor: '#60a5fa',
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                        fill: true, tension: 0.2, pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', callback: (v) => formatCurrency(v) } },
+                        x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                    },
+                    plugins: { legend: { labels: { color: '#9ca3af' } } }
+                }
+            });
+        }
+        toggleInputs();
+    </script>
+</body>
+</html>
