@@ -135,9 +135,16 @@ Since you have the URL, ensure you have clicked "Run" on the fetchTickerPrice fu
 
 Verify the Web App is deployed as "Execute as: Me" and "Who has access: Anyone".
 
-**3.0 Running the html:**
+**3.0 Copy URL**
 
-Instead of opening your code in a local text editor or browser tab from your hard drive, you should copy and paste that specific link into your browser address bar:
+Under **Manage Deployments**, copy the URL under **Web App**
+
+<img width="941" height="722" alt="image" src="https://github.com/user-attachments/assets/8a9d21df-d709-46bf-aabb-17f945afab66" />
+
+
+**4.0 Running the html:**
+
+Instead of opening your code in a local text editor or browser tab from your hard drive, you should copy and paste that specific URL link into your browser address bar:
 
 https://script.google.com/macros/s/AKfycbz8BkOF0ucMz9X5UkSqGk1jGVXu_kJ_zAQvuG2BoOLLL0kWvdAPJG2vLtCc-N0_2frc/exec
 
